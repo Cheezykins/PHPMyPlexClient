@@ -130,11 +130,12 @@ class PlexServer
      */
     public function getSections($path = '/library/sections')
     {
-        $response = $this->loadContainer($path);
-        foreach ($response->children() as $child) {
-            if ($child->hasKey()) {
-                $title = $this->nextFreeKey($child->title);
-                $this->sectionMappings[$title] = $child->key;
+        if (count($this->sectionMappings) == 0) {
+            $response = $this->loadContainer($path);
+            foreach ($response->children() as $child) {
+                if ($child->hasKey()) {
+                    $this->sectionMappings[$child->title] = $child->key;
+                }
             }
         }
         return $this->sectionMappings;
@@ -153,14 +154,10 @@ class PlexServer
     public function getSection($key, $directory = '', $path = '/library/sections')
     {
         if (!\is_int($key) && !\ctype_digit($key)) {
-            if (\count($this->sectionMappings) == 0) {
-                $this->getSections($path);
-            }
-            if (!\array_key_exists($key, $this->sectionMappings)) {
-                throw new Exceptions\MyPlexDataException("Provided key {$key} does not exist");
-            }
+            $this->getSections($path);
             $key = $this->sectionMappings[$key];
         }
+        $url = $key->generateUrl($path);
         if (!\is_int($key) && \substr($key, 0, 6) == '/sync/') {
             $url = $key;
         } else {
@@ -221,23 +218,5 @@ class PlexServer
         return $this->name . ' - ' . $this->getUrl();
     }
     
-    /**
-     * A simple method of deduplication for library titles.
-     * 
-     * If multiple libraries have the same name, this will append numbers until a unique one is found
-     * and reference it that way from then on. For example TV Shows, TV Shows 2, TV Shows 3 etc.
-     * 
-     * @param string $title
-     * @return string
-     */
-    private function nextFreeKey($title)
-    {
-        $increment = 1;
-        $checkedTitle = $title;
-        while (\array_key_exists($checkedTitle, $this->sectionMappings)) {
-            $checkedTitle = $title . ' ' . ((string) ++$increment);
-        }
 
-        return $checkedTitle;
-    }
 }
